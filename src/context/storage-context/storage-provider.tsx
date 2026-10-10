@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import type { StorageContext } from './storage-context';
 import { storageContext } from './storage-context';
 import type { Diagram } from '@/lib/domain/diagram';
@@ -154,41 +154,25 @@ const sortByName = <T extends { name: string }>(items: T[]): T[] =>
 export const StorageProvider: React.FC<React.PropsWithChildren> = ({
     children,
 }) => {
-    useEffect(() => {
-        let cancelled = false;
-
-        const ensureConfig = async () => {
-            const config = await getByKey<ChartDBConfig>(
+    const getConfig: StorageContext['getConfig'] = useCallback(
+        async (): Promise<ChartDBConfig | undefined> => {
+            const existing = await getByKey<ChartDBConfig>(
                 COLLECTIONS.config,
                 '1'
             );
-            if (config || cancelled) {
-                return;
+            if (existing) {
+                return existing;
             }
             const diagrams = await listCollection<Diagram>(
                 COLLECTIONS.diagrams
             );
-            if (cancelled) {
-                return;
-            }
-            await putByKey<ChartDBConfig>(COLLECTIONS.config, '1', {
+            const config: ChartDBConfig = {
                 id: 1,
                 defaultDiagramId: diagrams?.[0]?.id ?? '',
-            });
-        };
-
-        ensureConfig().catch(() => {
-            // ignore: config bootstrap is best-effort
-        });
-
-        return () => {
-            cancelled = true;
-        };
-    }, []);
-
-    const getConfig: StorageContext['getConfig'] = useCallback(
-        async (): Promise<ChartDBConfig | undefined> =>
-            await getByKey<ChartDBConfig>(COLLECTIONS.config, '1'),
+            };
+            await putByKey<ChartDBConfig>(COLLECTIONS.config, '1', config);
+            return config;
+        },
         []
     );
 
